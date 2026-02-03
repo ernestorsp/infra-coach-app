@@ -30,77 +30,58 @@
     const GAS_BASE = "https://script.google.com/macros/s/AKfycbyu4qmUIIylpBGYWsd94k6By9ZhPLFIpAWFUYOo1vgq3oKI1XPanbObpOUQsq-EOCA/exec";
     const frame = document.getElementById("appFrame");
 
-    function getAppParam(){
-      const p = new URLSearchParams(location.search);
-      const app = (p.get("app") || "coach").toLowerCase();
-      if (app === "capture") return "capture";
-      if (app === "rescue") return "rescue";
+    function normalizeApp(v){
+      const a = String(v || "").toLowerCase();
+      if (a === "capture") return "capture";
+      if (a === "rescue") return "rescue";
       return "coach";
     }
 
+    function getAppParam(){
+      const p = new URLSearchParams(location.search);
+      return normalizeApp(p.get("app") || "coach");
+    }
+
     function setIframe(app){
-      const nextUrl = (app === "capture") ? GAS_BASE : (GAS_BASE + "?app=" + encodeURIComponent(app));
+      const a = normalizeApp(app);
+      const nextUrl = (a === "capture") ? GAS_BASE : (GAS_BASE + "?app=" + encodeURIComponent(a));
       if (frame.src !== nextUrl) frame.src = nextUrl;
     }
+
+    // ✅ Asegura que la URL tenga app (para back button bonito)
+    (function ensureUrlHasApp(){
+      const url = new URL(location.href);
+      if (!url.searchParams.get("app")) {
+        url.searchParams.set("app", "coach");
+        history.replaceState({}, "", url);
+      }
+    })();
 
     // ✅ load initial
     setIframe(getAppParam());
 
-    // ✅ internal nav requested by GAS (your dropdown menu with postMessage)
+    // ✅ internal nav requested by GAS (dropdown menu -> postMessage)
     window.addEventListener("message", (event) => {
-      // IMPORTANT: for safety you could check event.origin, but script.google.com origin can vary.
-      const data = event.data || {};
-      if (data.type !== "AAXPRESS_NAV") return;
+      const data = event && event.data ? event.data : null;
+      if (!data || data.type !== "AAXPRESS_NAV") return;
 
-      const next = (data.app || "coach").toLowerCase();
+      const next = normalizeApp(data.app);
 
-      // update URL (nice for back button) but stays same page
+      // update URL (back button)
       const url = new URL(location.href);
       url.searchParams.set("app", next);
       history.pushState({}, "", url);
 
       setIframe(next);
+
+      // (opcional) confirmación al iframe
+      try{
+        frame.contentWindow && frame.contentWindow.postMessage({ type:"AAXPRESS_NAV_OK", app: next }, "*");
+      }catch(e){}
     });
 
     // ✅ support back button in PWA
     window.addEventListener("popstate", () => setIframe(getAppParam()));
-
-    // ✅ SUPER IMPORTANTE (iOS): evita que links dentro del iframe te saquen “por fuera”
-    // Si el iframe intenta navegar el top-level, lo forzamos a quedarse en el iframe.
-    // (Esto funciona cuando el navegador intenta abrir externo por navegación normal)
-    frame.addEventListener("load", () => {
-      try {
-        const doc = frame.contentDocument;
-        if (!doc) return;
-
-        // 1) fuerza base target self dentro del iframe
-        let base = doc.querySelector("base");
-        if (!base) {
-          base = doc.createElement("base");
-          doc.head && doc.head.prepend(base);
-        }
-        base.setAttribute("target", "_self");
-
-        // 2) intercepta clicks en <a> para no abrir afuera
-        doc.addEventListener("click", (e) => {
-          const a = e.target && e.target.closest ? e.target.closest("a") : null;
-          if (!a) return;
-
-          const href = a.getAttribute("href") || "";
-          // deja pasar anchors vacíos / # / onclick internos
-          if (!href || href === "#" || href.startsWith("javascript:")) return;
-
-          // si es link absoluto a script.google.com, lo abrimos en el iframe
-          if (href.startsWith("http")) {
-            e.preventDefault();
-            frame.src = href;
-          }
-        }, true);
-      } catch (err) {
-        // cross-origin: no podemos tocar el DOM del iframe (normal en script.google.com)
-        // No pasa nada; tu menú con postMessage es lo principal.
-      }
-    });
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js");
