@@ -24,26 +24,55 @@
       width: 100%;
       height: 100%;
       background: #000;
+      overflow: hidden;
     }
     iframe {
       border: none;
       width: 100%;
       height: 100%;
+      display: block;
+      background: #000;
     }
   </style>
 </head>
+
 <body>
 
-<iframe
-  src="https://script.google.com/macros/s/AKfycbyJlvbIJY3MapH3_lsoIZhWWbZXGaKR3uZrQY2EnH3VIUMrT3vtvSAmr7GN9zOiqME/exec?app=coach"
-  allow="camera; microphone; fullscreen">
-</iframe>
+  <iframe
+    id="appFrame"
+    allow="camera; microphone; fullscreen"
+    referrerpolicy="no-referrer-when-downgrade">
+  </iframe>
 
-<script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js");
-  }
-</script>
+  <script>
+    // ✅ PON AQUÍ LA BASE DEL WEB APP (SIN ?app=...)
+    // Ej: https://script.google.com/macros/s/XXXX/exec
+    const GAS_BASE = "https://script.google.com/macros/s/AKfycbyJlvbIJY3MapH3_lsoIZhWWbZXGaKR3uZrQY2EnH3VIUMrT3vtvSAmr7GN9zOiqME/exec";
+
+    const frame = document.getElementById("appFrame");
+
+    // ✅ Página inicial (coach por defecto)
+    frame.src = GAS_BASE + "?app=coach";
+
+    // ✅ Navegación interna (desde el menú del WebApp dentro del iframe)
+    // Tu WebApp debe mandar: window.parent.postMessage({type:"AAXPRESS_NAV", app:"capture|coach|rescue"}, "*")
+    window.addEventListener("message", (event) => {
+      const data = event.data || {};
+      if (data.type !== "AAXPRESS_NAV") return;
+
+      let url = GAS_BASE;              // capture default
+      if (data.app === "coach") url = GAS_BASE + "?app=coach";
+      if (data.app === "rescue") url = GAS_BASE + "?app=rescue";
+
+      frame.src = url; // ✅ NO sales de la app
+    });
+
+    // ✅ Service worker (PWA)
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js");
+    }
+  </script>
 
 </body>
 </html>
+
