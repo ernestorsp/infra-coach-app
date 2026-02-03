@@ -2,85 +2,66 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>INFRA – Driver Coaching</title>
-
-  <!-- Viewport -->
+  <title>INFRA</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-  <!-- PWA -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1557ff">
 
-  <!-- iOS -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="INFRA Coach">
+  <meta name="apple-mobile-web-app-title" content="INFRA">
   <link rel="apple-touch-icon" href="icon-512.png">
 
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background: #000;
-      overflow: hidden;
-    }
-    iframe {
-      border: none;
-      width: 100%;
-      height: 100%;
-      display: block;
-      background: #000;
-    }
+    html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden}
+    iframe{border:0;width:100%;height:100%;display:block;background:#000}
   </style>
 </head>
-
 <body>
 
-  <iframe
-    id="appFrame"
-    allow="camera; microphone; fullscreen"
-    referrerpolicy="no-referrer-when-downgrade">
-  </iframe>
+  <iframe id="appFrame" allow="camera; microphone; fullscreen"></iframe>
 
   <script>
-    /* =========================================================
-       CONFIG
-       ========================================================= */
-    // 👉 Base del WebApp (SIN ?app=)
-    const GAS_BASE =
-      "https://script.google.com/macros/s/AKfycbyJlvbIJY3MapH3_lsoIZhWWbZXGaKR3uZrQY2EnH3VIUMrT3vtvSAmr7GN9zOiqME/exec";
-
+    const GAS_BASE = "https://script.google.com/macros/s/AKfycbyJlvbIJY3MapH3_lsoIZhWWbZXGaKR3uZrQY2EnH3VIUMrT3vtvSAmr7GN9zOiqME/exec";
     const frame = document.getElementById("appFrame");
 
-    /* =========================================================
-       INICIO: COACHING
-       ========================================================= */
-    frame.src = GAS_BASE + "?app=coach";
+    function getAppParam(){
+      const p = new URLSearchParams(location.search);
+      const app = (p.get("app") || "coach").toLowerCase();
+      if (app === "capture") return "capture";
+      if (app === "rescue") return "rescue";
+      return "coach";
+    }
 
-    /* =========================================================
-       NAVEGACIÓN INTERNA (NO sale de la app)
-       ========================================================= */
+    function setIframe(app){
+      if (app === "capture") frame.src = GAS_BASE;
+      else frame.src = GAS_BASE + "?app=" + app;
+    }
+
+    // load initial
+    setIframe(getAppParam());
+
+    // listen from GAS menu: internal navigation without leaving the PWA
     window.addEventListener("message", (event) => {
       const data = event.data || {};
       if (data.type !== "AAXPRESS_NAV") return;
 
-      let url = GAS_BASE; // Capture por defecto
-      if (data.app === "coach") url = GAS_BASE + "?app=coach";
-      if (data.app === "rescue") url = GAS_BASE + "?app=rescue";
+      const next = (data.app || "coach").toLowerCase();
 
-      frame.src = url;
+      // update URL (nice for back button) but stays same page
+      const url = new URL(location.href);
+      url.searchParams.set("app", next);
+      history.pushState({}, "", url);
+
+      setIframe(next);
     });
 
-    /* =========================================================
-       SERVICE WORKER (PWA)
-       ========================================================= */
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("sw.js");
-    }
+    // support back button in PWA
+    window.addEventListener("popstate", () => setIframe(getAppParam()));
+
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
   </script>
 
 </body>
 </html>
-
