@@ -45,29 +45,37 @@
   </iframe>
 
   <script>
-    // ✅ PON AQUÍ LA BASE DEL WEB APP (SIN ?app=...)
-    // Ej: https://script.google.com/macros/s/XXXX/exec
-    const GAS_BASE = "https://script.google.com/macros/s/AKfycbyJlvbIJY3MapH3_lsoIZhWWbZXGaKR3uZrQY2EnH3VIUMrT3vtvSAmr7GN9zOiqME/exec";
+    /* =========================================================
+       CONFIG
+       ========================================================= */
+    // 👉 Base del WebApp (SIN ?app=)
+    const GAS_BASE =
+      "https://script.google.com/macros/s/AKfycbyJlvbIJY3MapH3_lsoIZhWWbZXGaKR3uZrQY2EnH3VIUMrT3vtvSAmr7GN9zOiqME/exec";
 
     const frame = document.getElementById("appFrame");
 
-    // ✅ Página inicial (coach por defecto)
+    /* =========================================================
+       INICIO: COACHING
+       ========================================================= */
     frame.src = GAS_BASE + "?app=coach";
 
-    // ✅ Navegación interna (desde el menú del WebApp dentro del iframe)
-    // Tu WebApp debe mandar: window.parent.postMessage({type:"AAXPRESS_NAV", app:"capture|coach|rescue"}, "*")
+    /* =========================================================
+       NAVEGACIÓN INTERNA (NO sale de la app)
+       ========================================================= */
     window.addEventListener("message", (event) => {
       const data = event.data || {};
       if (data.type !== "AAXPRESS_NAV") return;
 
-      let url = GAS_BASE;              // capture default
+      let url = GAS_BASE; // Capture por defecto
       if (data.app === "coach") url = GAS_BASE + "?app=coach";
       if (data.app === "rescue") url = GAS_BASE + "?app=rescue";
 
-      frame.src = url; // ✅ NO sales de la app
+      frame.src = url;
     });
 
-    // ✅ Service worker (PWA)
+    /* =========================================================
+       SERVICE WORKER (PWA)
+       ========================================================= */
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js");
     }
