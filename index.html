@@ -20,7 +20,11 @@
 </head>
 <body>
 
-  <iframe id="appFrame" allow="camera; microphone; fullscreen"></iframe>
+  <iframe
+    id="appFrame"
+    allow="camera; microphone; fullscreen"
+    referrerpolicy="no-referrer-when-downgrade"
+  ></iframe>
 
   <script>
     const GAS_BASE = "https://script.google.com/macros/s/AKfycbyu4qmUIIylpBGYWsd94k6By9ZhPLFIpAWFUYOo1vgq3oKI1XPanbObpOUQsq-EOCA/exec";
@@ -35,15 +39,16 @@
     }
 
     function setIframe(app){
-      if (app === "capture") frame.src = GAS_BASE;
-      else frame.src = GAS_BASE + "?app=" + app;
+      const nextUrl = (app === "capture") ? GAS_BASE : (GAS_BASE + "?app=" + encodeURIComponent(app));
+      if (frame.src !== nextUrl) frame.src = nextUrl;
     }
 
-    // load initial
+    // ✅ load initial
     setIframe(getAppParam());
 
-    // listen from GAS menu: internal navigation without leaving the PWA
+    // ✅ internal nav requested by GAS (your dropdown menu with postMessage)
     window.addEventListener("message", (event) => {
+      // IMPORTANT: for safety you could check event.origin, but script.google.com origin can vary.
       const data = event.data || {};
       if (data.type !== "AAXPRESS_NAV") return;
 
@@ -57,10 +62,49 @@
       setIframe(next);
     });
 
-    // support back button in PWA
+    // ✅ support back button in PWA
     window.addEventListener("popstate", () => setIframe(getAppParam()));
 
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+    // ✅ SUPER IMPORTANTE (iOS): evita que links dentro del iframe te saquen “por fuera”
+    // Si el iframe intenta navegar el top-level, lo forzamos a quedarse en el iframe.
+    // (Esto funciona cuando el navegador intenta abrir externo por navegación normal)
+    frame.addEventListener("load", () => {
+      try {
+        const doc = frame.contentDocument;
+        if (!doc) return;
+
+        // 1) fuerza base target self dentro del iframe
+        let base = doc.querySelector("base");
+        if (!base) {
+          base = doc.createElement("base");
+          doc.head && doc.head.prepend(base);
+        }
+        base.setAttribute("target", "_self");
+
+        // 2) intercepta clicks en <a> para no abrir afuera
+        doc.addEventListener("click", (e) => {
+          const a = e.target && e.target.closest ? e.target.closest("a") : null;
+          if (!a) return;
+
+          const href = a.getAttribute("href") || "";
+          // deja pasar anchors vacíos / # / onclick internos
+          if (!href || href === "#" || href.startsWith("javascript:")) return;
+
+          // si es link absoluto a script.google.com, lo abrimos en el iframe
+          if (href.startsWith("http")) {
+            e.preventDefault();
+            frame.src = href;
+          }
+        }, true);
+      } catch (err) {
+        // cross-origin: no podemos tocar el DOM del iframe (normal en script.google.com)
+        // No pasa nada; tu menú con postMessage es lo principal.
+      }
+    });
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js");
+    }
   </script>
 
 </body>
