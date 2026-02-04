@@ -2,6 +2,7 @@
   "name": "INFRA Driver Coaching",
   "short_name": "INFRA Coach",
   "start_url": "/infra-coach-app/",
+  "scope": "/infra-coach-app/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#1557ff",
